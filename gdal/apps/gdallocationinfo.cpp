@@ -254,6 +254,7 @@ MAIN_START(argc, argv)
         else if( i < argc-1 && EQUAL(argv[i],"-l_srs") )
         {
             CPLFree(pszSourceSRS);
+            // coverity[tainted_data]
             pszSourceSRS = SanitizeSRS(argv[++i]);
         }
         else if( EQUAL(argv[i],"-geoloc") )
@@ -316,13 +317,16 @@ MAIN_START(argc, argv)
 /* -------------------------------------------------------------------- */
 /*      Setup coordinate transformation, if required                    */
 /* -------------------------------------------------------------------- */
-    OGRSpatialReferenceH hSrcSRS = nullptr, hTrgSRS = nullptr;
+    OGRSpatialReferenceH hSrcSRS = nullptr;
     OGRCoordinateTransformationH hCT = nullptr;
     if( pszSourceSRS != nullptr && !EQUAL(pszSourceSRS,"-geoloc") )
     {
 
         hSrcSRS = OSRNewSpatialReference( pszSourceSRS );
-        hTrgSRS = OSRNewSpatialReference( GDALGetProjectionRef( hSrcDS ) );
+        OSRSetAxisMappingStrategy(hSrcSRS, OAMS_TRADITIONAL_GIS_ORDER);
+        auto hTrgSRS = GDALGetSpatialRef( hSrcDS );
+        if( !hTrgSRS )
+            exit(1);
 
         hCT = OCTNewCoordinateTransformation( hSrcSRS, hTrgSRS );
         if( hCT == nullptr )
@@ -629,7 +633,6 @@ MAIN_START(argc, argv)
 /* -------------------------------------------------------------------- */
     if (hCT) {
         OSRDestroySpatialReference( hSrcSRS );
-        OSRDestroySpatialReference( hTrgSRS );
         OCTDestroyCoordinateTransformation( hCT );
     }
 

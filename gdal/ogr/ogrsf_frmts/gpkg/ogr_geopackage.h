@@ -132,6 +132,7 @@ class GDALGeoPackageDataset final : public OGRSQLiteBaseDataSource, public GDALG
     CPLString           m_osTilingScheme;
 
         bool            ComputeTileAndPixelShifts();
+        bool            AllocCachedTiles();
         bool            InitRaster ( GDALGeoPackageDataset* poParentDS,
                                      const char* pszTableName,
                                      double dfMinX,
@@ -191,6 +192,7 @@ class GDALGeoPackageDataset final : public OGRSQLiteBaseDataSource, public GDALG
 
         int                     FindLayerIndex(const char* pszLayerName);
 
+        bool                    HasGriddedCoverageAncillaryTable();
         bool                    CreateTileGriddedTable(char** papszOptions);
 
         void                    CreateOGREmptyTableIfNeeded();
@@ -204,7 +206,7 @@ class GDALGeoPackageDataset final : public OGRSQLiteBaseDataSource, public GDALG
         bool                    m_bMapTableToExtensionsBuilt;
         std::map< CPLString, std::vector<GPKGExtensionDesc> > m_oMapTableToExtensions;
         const std::map< CPLString, std::vector<GPKGExtensionDesc> > &
-                                        GetExtensions();
+                                        GetUnknownExtensionsTableSpecific();
 
         bool                    m_bMapTableToContentsBuilt;
         std::map< CPLString, GPKGContentsDesc > m_oMapTableToContents;
@@ -216,6 +218,8 @@ class GDALGeoPackageDataset final : public OGRSQLiteBaseDataSource, public GDALG
         OGRErr              DeleteRasterLayer( const char* pszLayerName );
         bool                DeleteVectorOrRasterLayer(
                                                 const char* pszLayerName );
+
+        bool                ConvertGpkgSpatialRefSysToExtensionWkt2();
 
     public:
                             GDALGeoPackageDataset();
@@ -231,8 +235,14 @@ class GDALGeoPackageDataset final : public OGRSQLiteBaseDataSource, public GDALG
                                              const char * pszValue,
                                              const char * pszDomain = "" ) override;
 
-        virtual const char* GetProjectionRef() override;
-        virtual CPLErr      SetProjection( const char* pszProjection ) override;
+        virtual const char* _GetProjectionRef() override;
+        virtual CPLErr      _SetProjection( const char* pszProjection ) override;
+        const OGRSpatialReference* GetSpatialRef() const override {
+            return GetSpatialRefFromOldGetProjectionRef();
+        }
+        CPLErr SetSpatialRef(const OGRSpatialReference* poSRS) override {
+            return OldSetProjectionFromSetSpatialRef(poSRS);
+        }
 
         virtual CPLErr      GetGeoTransform( double* padfGeoTransform ) override;
         virtual CPLErr      SetGeoTransform( double* padfGeoTransform ) override;
@@ -275,8 +285,10 @@ class GDALGeoPackageDataset final : public OGRSQLiteBaseDataSource, public GDALG
         OGRErr              CreateExtensionsTableIfNecessary();
         bool                HasExtensionsTable();
         OGRErr              CreateGDALAspatialExtension();
-        bool                HasDataColumnsTable();
         void                SetMetadataDirty() { m_bMetadataDirty = true; }
+
+        bool                    HasDataColumnsTable();
+        bool                    HasDataColumnConstraintsTable();
 
         const char*         GetGeometryTypeString(OGRwkbGeometryType eType);
 
@@ -448,6 +460,8 @@ class OGRGeoPackageTableLayer final : public OGRGeoPackageLayer
 
     OGRErr              ReadTableDefinition();
     void                InitView();
+
+    bool                DoSpecialProcessingForColumnCreation(OGRFieldDefn* poField);
 
     public:
                         OGRGeoPackageTableLayer( GDALGeoPackageDataset *poDS,

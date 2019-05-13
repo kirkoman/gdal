@@ -4,8 +4,13 @@
 *.so
 *~
 
-# eclipse ignore
+.vagrant
+
+# IDE ignore
 .project
 .settings
 .pydevproject
 .cproject
+.idea
+.vscode
+

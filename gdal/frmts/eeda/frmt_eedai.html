@@ -16,7 +16,8 @@ using Google Earth Engine REST API.<p>
 
 The minimal syntax to open a datasource is : <pre>EEDAI:[asset][:band_names]</pre><p>
 
-where asset is something like COPERNICUS/S2/20170430T190351_20170430T190351_T10SEG,
+where asset is something like
+projects/earthengine-public/assets/COPERNICUS/S2/20170430T190351_20170430T190351_T10SEG,
 and band_names a comma separated list of band names (typically indicated by
 subdatasets on the main image)
 
@@ -27,7 +28,7 @@ The following open options are available :
 <li><b>ASSET</b>=string: To specify the asset if not specified in
 the connection string.</li>
 <li><b>BANDS</b>=bandname1[,bandnameX]*: Comma separated list of band names.</li>
-<li><b>PIXEL_ENCODING</b>=AUTO/PNG/JPEG/AUTO_PNG_JPEG/GEO_TIFF/NPY: Format in which to
+<li><b>PIXEL_ENCODING</b>=AUTO/PNG/JPEG/AUTO_JPEG_PNG/GEO_TIFF/NPY: Format in which to
 request pixels.</li>
 <li><b>BLOCK_SIZE</b>=integer: Size of a GDAL block, which is the minimum unit
 to query pixels. Default is 256.</li>
@@ -94,18 +95,18 @@ metadata.
 
 By default (PIXEL_ENCODING=AUTO), the driver will request pixels in a format
 compatible of the number and data types of the bands. The PNG, JPEG and
-AUTO_PNG_JPEG can only be used with bands of type Byte.
+AUTO_JPEG_PNG can only be used with bands of type Byte.
 
 <h3>Examples</h3>
 
 <li>
 Get metadata on an image:
 <pre>
-gdalinfo "EEDAI:" -oo ASSET=COPERNICUS/S2/20170430T190351_20170430T190351_T10SEG --config EEDA_CLIENT_EMAIL "my@email" --config EEDA_PRIVATE_KEY_FILE my.pem
+gdalinfo "EEDAI:" -oo ASSET=projects/earthengine-public/assets/COPERNICUS/S2/20170430T190351_20170430T190351_T10SEG --config EEDA_CLIENT_EMAIL "my@email" --config EEDA_PRIVATE_KEY_FILE my.pem
 </pre>
 or
 <pre>
-gdalinfo "EEDAI:COPERNICUS/S2/20170430T190351_20170430T190351_T10SEG" --config EEDA_CLIENT_EMAIL "my@email" --config EEDA_PRIVATE_KEY_FILE my.pem
+gdalinfo "EEDAI:projects/earthengine-public/assets/COPERNICUS/S2/20170430T190351_20170430T190351_T10SEG" --config EEDA_CLIENT_EMAIL "my@email" --config EEDA_PRIVATE_KEY_FILE my.pem
 </pre>
 <p>
 

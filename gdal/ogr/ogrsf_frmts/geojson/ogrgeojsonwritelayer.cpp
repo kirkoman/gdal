@@ -72,6 +72,8 @@ OGRGeoJSONWriteLayer::OGRGeoJSONWriteLayer( const char* pszName,
         oWriteOptions_.SetRFC7946Settings();
     }
     oWriteOptions_.SetIDOptions(papszOptions);
+    oWriteOptions_.bAllowNonFiniteValues = CPLTestBool(
+        CSLFetchNameValueDef(papszOptions, "WRITE_NON_FINITE_VALUES", "FALSE"));
 }
 
 /************************************************************************/
@@ -154,7 +156,8 @@ OGRErr OGRGeoJSONWriteLayer::ICreateFeature( OGRFeature* poFeature )
             const char* const apszOptions[] = { "WRAPDATELINE=YES", nullptr };
             OGRGeometry* poNewGeom =
                 OGRGeometryFactory::transformWithOptions(
-                    poGeometry, poCT_, const_cast<char**>(apszOptions));
+                    poGeometry, poCT_, const_cast<char**>(apszOptions),
+                    oTransformCache_);
             if( poNewGeom == nullptr )
             {
                 delete poFeatureToWrite;
@@ -290,7 +293,7 @@ OGRErr OGRGeoJSONWriteLayer::ICreateFeature( OGRFeature* poFeature )
 OGRErr OGRGeoJSONWriteLayer::CreateField( OGRFieldDefn* poField,
                                           int /* bApproxOK */  )
 {
-    if( poFeatureDefn_->GetFieldIndex(poField->GetNameRef()) >= 0 )
+    if( poFeatureDefn_->GetFieldIndexCaseSensitive(poField->GetNameRef()) >= 0 )
     {
         CPLDebug( "GeoJSON", "Field '%s' already present in schema",
                     poField->GetNameRef() );

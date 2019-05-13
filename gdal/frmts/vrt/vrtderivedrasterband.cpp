@@ -447,6 +447,7 @@ static bool LoadPythonAPI()
                                                 "libpython3.4m." SO_EXT,
                                                 "libpython3.5m." SO_EXT,
                                                 "libpython3.6m." SO_EXT,
+                                                "libpython3.7m." SO_EXT,
                                                 "libpython3.3." SO_EXT,
                                                 "libpython3.2." SO_EXT };
         for( size_t i = 0; libHandle == nullptr &&
@@ -645,6 +646,7 @@ static bool LoadPythonAPI()
                                             "python34.dll",
                                             "python35.dll",
                                             "python36.dll",
+                                            "python37.dll",
                                             "python33.dll",
                                             "python32.dll" };
         UINT        uOldErrorMode;
@@ -737,7 +739,7 @@ static bool LoadPythonAPI()
 #endif // LOAD_NOCHECK_WITH_NAME
 
     bInit = true;
-    return bInit;
+    return true;
 }
 
 /************************************************************************/
@@ -1433,8 +1435,17 @@ bool VRTDerivedRasterBand::InitializePython()
         PyObject* poUserModule = PyImport_ImportModule(osPythonModule);
         if (poUserModule == nullptr || PyErr_Occurred())
         {
+            CPLString osException = GetPyExceptionString();
+            if( !osException.empty() && osException.back() == '\n' )
+            {
+                osException.resize( osException.size() - 1 );
+            }
+            if( osException.find("ModuleNotFoundError") == 0 )
+            {
+                osException += ". You may need to define PYTHONPATH";
+            }
             CPLError(CE_Failure, CPLE_AppDefined,
-                 "%s", GetPyExceptionString().c_str());
+                 "%s", osException.c_str());
             Py_DecRef(poModule);
             return false;
         }
@@ -1979,11 +1990,13 @@ int  VRTDerivedRasterBand::IGetDataCoverageStatus( int /* nXOff */,
 
 CPLErr VRTDerivedRasterBand::XMLInit( CPLXMLNode *psTree,
                                       const char *pszVRTPath,
-                                      void* pUniqueHandle )
+                                      void* pUniqueHandle,
+                                      std::map<CPLString, GDALDataset*>& oMapSharedSources )
 
 {
     const CPLErr eErr = VRTSourcedRasterBand::XMLInit( psTree, pszVRTPath,
-                                                       pUniqueHandle );
+                                                       pUniqueHandle,
+                                                       oMapSharedSources );
     if( eErr != CE_None )
         return eErr;
 

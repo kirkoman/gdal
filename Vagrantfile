@@ -43,7 +43,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     ovrd.vm.box = "cultuurnet/ubuntu-14.04-64-puppet"
     lxc.backingstore = 'dir'
     lxc.customize 'cgroup.memory.limit_in_bytes', vm_ram_bytes
-    lxc.customize 'aa_allow_incomplete', 1
+    # LXC 3 or later deprecated old parameter
+    lxc.customize 'apparmor.allow_incomplete', 1
+    # for LXC 2.1 or before
+    #lxc.customize 'aa_allow_incomplete', 1
     lxc.container_name = "gdal-vagrant"
     # allow android adb connection from guest
     #ovrd.vm.synced_folder('/dev/bus', '/dev/bus')
@@ -65,7 +68,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   ppaRepos = [
     "ppa:openjdk-r/ppa",
     "ppa:ubuntugis/ubuntugis-unstable",
-    "ppa:miurahr/gdal-depends"
+    "ppa:miurahr/gdal-dev-additions"
   ]
 
   packageList = [
@@ -88,7 +91,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     "liblzma-dev",
     "libgeos-dev",
     "libcurl4-gnutls-dev",
-    "libproj-dev",
+    # "libproj-dev",
     "libxml2-dev",
     "libexpat-dev",
     "libxerces-c-dev",
@@ -102,7 +105,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     "libmpfr-dev",
     "libkml-dev",
     "swig",
-    "libhdf4-dev",
+    "libhdf4-alt-dev", # libhdf4-dev conflicts with netcdf and crashes at runtime
     "libhdf5-dev",
     "poppler-utils",
     "libfreexl-dev",
@@ -132,7 +135,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     "vim",
     "ant",
     "unzip",
-    "mono-mcs",
+    "mono-devel",
     "libmono-system-drawing4.0-cil",
     "libjson-c-dev",
     "libtiff5-dev",
@@ -145,21 +148,24 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     "wine",
     "ccache",
     "curl",
-    "mingw32",
     "mingw-w64",
     "mingw-w64-i686-dev",
     "mingw-w64-x86-64-dev",
     "mingw-w64-tools",
+    "gdb-mingw-w64-target",
+    "libgeos-mingw-w64-dev",
+    # "libproj-mingw-w64-dev",
     "cmake3-curses-gui",
     "gdb",
     "gdbserver",
-    "gdb-mingw-w64-target",
     "ninja-build",
     "openjdk-8-jdk",
     "ghostscript",
 #    "grass-dev",
     "libcharls-dev",
     "libgeotiff-dev",
+    "libgeotiff-epsg",
+    "sqlite3",
     "sqlite3-pcre",
     "libpcre3-dev",
     "libspatialite-dev",
@@ -180,7 +186,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       pkg_cmd << 'echo "deb mirror://mirrors.ubuntu.com/mirrors.txt trusty universe" > /etc/apt/sources.list.d/official-ubuntu-trusty-universe.list; '
       pkg_cmd << 'echo "deb [ arch=amd64 ] http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.4 multiverse" > /etc/apt/sources.list.d/mongodb-org-3.4.list; '
       pkg_cmd << 'curl -Ls https://www.mongodb.org/static/pgp/server-3.4.asc | apt-key add -; '
-	  pkg_cmd << "apt-get update -qq; apt-get install -q -y python-software-properties; "
+      pkg_cmd << "apt-get update -qq; apt-get install -q -y python-software-properties; "
+      pkg_cmd << "apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF ; "
+      pkg_cmd << 'echo "deb https://download.mono-project.com/repo/ubuntu stable-trusty main" > /etc/apt/sources.list.d/mono-official-stable.list; '
       pkg_cmd << "dpkg --add-architecture i386; "
 
 	  if ppaRepos.length > 0
@@ -188,12 +196,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 		  pkg_cmd << "apt-get update -qq; "
 	  end
 
-	  # install packages we need we need
+	  # install packages we need
 	  pkg_cmd << "apt-get --no-install-recommends install -q -y " + packageList.join(" ") << " ; "
 	  config.vm.provision :shell, :inline => pkg_cmd
     scripts = [
+      "install-proj6.sh",
       "gdal.sh",
-      "postgis.sh"
+      "postgis.sh",
+      "install-proj6-mingw.sh",
+      "gdal-mingw.sh"
     ];
     scripts.each { |script| config.vm.provision :shell, :privileged => false, :path => "gdal/scripts/vagrant/" << script }
   end

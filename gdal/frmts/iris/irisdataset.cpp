@@ -83,7 +83,10 @@ public:
     static int Identify( GDALOpenInfo * );
 
     CPLErr GetGeoTransform( double * padfTransform ) override;
-    const char *GetProjectionRef() override;
+    const char *_GetProjectionRef() override;
+    const OGRSpatialReference* GetSpatialRef() const override {
+        return GetSpatialRefFromOldGetProjectionRef();
+    }
 };
 
 const char* const IRISDataset::aszProductNames[] = {
@@ -482,6 +485,7 @@ void IRISDataset::LoadProjection()
         return;
 
     OGRSpatialReference oSRSOut;
+    oSRSOut.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
 
     // Mercator projection.
     if( EQUAL(aszProjections[nProjectionCode],"Mercator") )
@@ -508,12 +512,14 @@ void IRISDataset::LoadProjection()
             "degree", 0.0174532925199433);
 
         oSRSOut.SetMercator(fProjRefLat, fProjRefLon, 1.0, 0.0, 0.0);
+        oSRSOut.SetLinearUnits("Metre", 1.0);
         oSRSOut.exportToWkt(&pszSRS_WKT);
 
         // The center coordinates are given in LatLon on the defined
         // ellipsoid. Necessary to calculate geotransform.
 
         OGRSpatialReference oSRSLatLon;
+        oSRSLatLon.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
         oSRSLatLon.SetGeogCS(
             "unnamed ellipse",
             "unknown",
@@ -686,7 +692,7 @@ CPLErr IRISDataset::GetGeoTransform( double * padfTransform )
 /*                          GetProjectionRef()                          */
 /************************************************************************/
 
-const char *IRISDataset::GetProjectionRef()
+const char *IRISDataset::_GetProjectionRef()
 {
     if( !bHasLoadedProjection )
         LoadProjection();

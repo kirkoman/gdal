@@ -65,7 +65,7 @@ for developers.<p>
 
 \section gdal_vrttut_format .vrt Format
 
-A <a href="http://svn.osgeo.org/gdal/trunk/gdal/data/gdalvrt.xsd">XML schema of the GDAL VRT format</a>
+A <a href="https://raw.githubusercontent.com/OSGeo/gdal/master/gdal/data/gdalvrt.xsd">XML schema of the GDAL VRT format</a>
 is available.<p>
 
 Virtual files stored on disk are kept in an XML format with the following
@@ -94,8 +94,18 @@ As as well WKT, and valid input to the SetFromUserInput() method (such as well
 known GEOGCS names, and PROJ.4 format) is also allowed in the SRS element.
 
 \code
-  <SRS>PROJCS[&quot;NAD27 / UTM zone 11N&quot;,GEOGCS[&quot;NAD27&quot;,DATUM[&quot;North_American_Datum_1927&quot;,SPHEROID[&quot;Clarke 1866&quot;,6378206.4,294.9786982139006,AUTHORITY[&quot;EPSG&quot;,&quot;7008&quot;]],AUTHORITY[&quot;EPSG&quot;,&quot;6267&quot;]],PRIMEM[&quot;Greenwich&quot;,0],UNIT[&quot;degree&quot;,0.0174532925199433],AUTHORITY[&quot;EPSG&quot;,&quot;4267&quot;]],PROJECTION[&quot;Transverse_Mercator&quot;],PARAMETER[&quot;latitude_of_origin&quot;,0],PARAMETER[&quot;central_meridian&quot;,-117],PARAMETER[&quot;scale_factor&quot;,0.9996],PARAMETER[&quot;false_easting&quot;,500000],PARAMETER[&quot;false_northing&quot;,0],UNIT[&quot;metre&quot;,1,AUTHORITY[&quot;EPSG&quot;,&quot;9001&quot;]],AUTHORITY[&quot;EPSG&quot;,&quot;26711&quot;]]</SRS>
+  <SRS dataAxisToSRSAxisMapping="1,2">PROJCS[&quot;NAD27 / UTM zone 11N&quot;,GEOGCS[&quot;NAD27&quot;,DATUM[&quot;North_American_Datum_1927&quot;,SPHEROID[&quot;Clarke 1866&quot;,6378206.4,294.9786982139006,AUTHORITY[&quot;EPSG&quot;,&quot;7008&quot;]],AUTHORITY[&quot;EPSG&quot;,&quot;6267&quot;]],PRIMEM[&quot;Greenwich&quot;,0],UNIT[&quot;degree&quot;,0.0174532925199433],AUTHORITY[&quot;EPSG&quot;,&quot;4267&quot;]],PROJECTION[&quot;Transverse_Mercator&quot;],PARAMETER[&quot;latitude_of_origin&quot;,0],PARAMETER[&quot;central_meridian&quot;,-117],PARAMETER[&quot;scale_factor&quot;,0.9996],PARAMETER[&quot;false_easting&quot;,500000],PARAMETER[&quot;false_northing&quot;,0],UNIT[&quot;metre&quot;,1,AUTHORITY[&quot;EPSG&quot;,&quot;9001&quot;]],AUTHORITY[&quot;EPSG&quot;,&quot;26711&quot;]]</SRS>
 \endcode
+
+The <i>dataAxisToSRSAxisMapping</i> attribute is allowed since GDAL 3.0 to
+describe the relationship between the axis indicated in the CRS definition and
+the axis of the GeoTransform or GCP metadata. The value of the attribute is a comma
+separated list of integers. The number of elements of this list must be the
+number of axis of the CRS. Values start at 1. If m denotes the array values of
+this attribute, then m[0] is the data axis number for the first axis of the CRS.
+If the attribute is missing, then the OAMS_TRADITIONAL_GIS_ORDER data axis to
+CRS axis mapping strategy is implied.
+
 </li>
 
 <li> <b>GeoTransform</b>: This element contains a six value affine
@@ -1196,6 +1206,14 @@ def hillshade(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize,
 
 </li>
 
+\subsection gdal_vrttut_derived_python_python_module_path Python module path
+
+When importing modules from inline Python code or when relying on out-of-line
+code (PixelFunctionType of the form "module_name.function_name"), you need
+to make sure the modules are accessible through the python path. Note that
+contrary to the Python interactive interpreter, the current path is not
+automatically added when used from GDAL. So you may need to define the
+PYTHONPATH environment variable if you get ModuleNotFoundError exceptions.
 
 \subsection gdal_vrttut_derived_python_security Security implications
 

@@ -130,7 +130,9 @@ typedef int CPLErrorNum;
 /** AWSInvalidCredentials */
 #define CPLE_AWSInvalidCredentials      15
 /** AWSSignatureDoesNotMatch */
-#define CPLE_AWSSignatureDoesNotMatch    16
+#define CPLE_AWSSignatureDoesNotMatch   16
+/** VSIE_AWSError */
+#define CPLE_AWSError                   17
 
 /* 100 - 299 reserved for GDAL */
 
@@ -251,6 +253,11 @@ class CPLErrorStateBackuper
 };
 
 }
+
+#ifdef GDAL_COMPILATION
+// internal only
+bool CPLIsDefaultErrorHandlerAndCatchDebug();
+#endif
 
 #endif
 

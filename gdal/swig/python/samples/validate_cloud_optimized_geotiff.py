@@ -78,6 +78,7 @@ def validate(ds, check_tiled=True):
 
     details = {}
     errors = []
+    warnings = []
     filename = ds.GetDescription()
     main_band = ds.GetRasterBand(1)
     ovr_count = main_band.GetOverviewCount()
@@ -86,7 +87,7 @@ def validate(ds, check_tiled=True):
         errors += [
             'Overviews found in external .ovr file. They should be internal']
 
-    if main_band.XSize >= 512 or main_band.YSize >= 512:
+    if main_band.XSize > 512 or main_band.YSize > 512:
         if check_tiled:
             block_size = main_band.GetBlockSize()
             if block_size[0] == main_band.XSize and block_size[0] > 1024:
@@ -94,8 +95,9 @@ def validate(ds, check_tiled=True):
                     'The file is greater than 512xH or Wx512, but is not tiled']
 
         if ovr_count == 0:
-            errors += [
-                'The file is greater than 512xH or Wx512, but has no overviews']
+            warnings += [
+                'The file is greater than 512xH or Wx512, it is recommended '
+                'to include internal overviews']
 
     ifd_offset = int(main_band.GetMetadataItem('IFD_OFFSET', 'TIFF'))
     ifd_offsets = [ifd_offset]
@@ -183,7 +185,7 @@ def validate(ds, check_tiled=True):
             'should be after the one of the overview of index %d' %
             (ovr_count - 1)]
 
-    return errors, details
+    return warnings, errors, details
 
 
 def main():
@@ -208,18 +210,29 @@ def main():
         return Usage()
 
     try:
-        errors, _ = validate(filename)
+        ret = 0
+        warnings, errors, details = validate(filename)
+        if warnings:
+            if not quiet:
+                print('The following warnings were found:')
+                for warning in warnings:
+                    print(' - ' + warning)
+                print('')
         if errors:
             if not quiet:
                 print('%s is NOT a valid cloud optimized GeoTIFF.' % filename)
                 print('The following errors were found:')
                 for error in errors:
                     print(' - ' + error)
+                print('')
             ret = 1
         else:
-            ret = 0
             if not quiet:
                 print('%s is a valid cloud optimized GeoTIFF' % filename)
+
+        if not quiet and not warnings and not errors:
+            print('\nThe size of all IFD headers is %d bytes' %
+                  min(details['data_offsets'][k] for k in details['data_offsets']))
     except ValidateCloudOptimizedGeoTIFFException as e:
         if not quiet:
             print('%s is NOT a valid cloud optimized GeoTIFF : %s' %

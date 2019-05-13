@@ -356,6 +356,23 @@ AC_CHECK_FUNCS(statvfs)
 AC_CHECK_FUNCS(statvfs64)
 AC_CHECK_FUNCS(getrlimit)
 
+AC_MSG_CHECKING([for RLIMIT_AS])
+AC_TRY_COMPILE(
+  [
+#include <sys/time.h>
+#include <sys/resource.h>
+  ], [
+    return RLIMIT_AS;
+  ],
+  [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE_UNQUOTED(HAVE_RLIMIT_AS, 1,
+          [Define to 1 if you have the `RLIMIT_AS' constant.])
+  ], [
+    AC_MSG_RESULT([no])
+])
+
+
 dnl Make sure at least these are checked under C++.  Prototypes missing on
 dnl some platforms.
 
@@ -1166,6 +1183,112 @@ if test "$am_func_iconv" = "yes"; then
     AC_DEFINE_UNQUOTED(ICONV_CPP_CONST,$ICONV_CPP_CONST, [For.cpp files, define as const if the declaration of iconv() needs const.])
 fi
 
+dnl ---------------------------------------------------------------------------
+dnl PROJ.6 related stuff
+dnl ---------------------------------------------------------------------------
+
+AC_MSG_CHECKING([for PROJ >= 6 library])
+
+AC_ARG_WITH(proj,[  --with-proj=ARG Compile with PROJ.x (ARG=yes or path)],,)
+
+PROJ_INCLUDE=""
+if test "x$with_proj" = "xno" ; then
+
+  AC_MSG_ERROR([PROJ >= 6 is a required dependency.])
+
+else
+
+  if test "x$with_proj" = "xyes" -o "x$with_proj" = "x"; then
+    ORIG_LIBS="$LIBS"
+    LIBS="-lproj $ORIG_LIBS"
+    AC_LANG_PUSH([C++])
+    AC_CHECK_LIB(proj,proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+    AC_LANG_POP([C++])
+    if test "$PROJ_FOUND" = "no"; then
+        AC_LANG_PUSH([C++])
+        AC_CHECK_LIB(proj,internal_proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+        AC_LANG_POP([C++])
+        if test "$PROJ_FOUND" = "yes"; then
+            PROJ_INCLUDE="-DPROJ_RENAME_SYMBOLS"
+        fi
+    fi
+    if test "$PROJ_FOUND" = "no"; then
+        LIBS="-linternalproj $ORIG_LIBS"
+        AC_LANG_PUSH([C++])
+        AC_CHECK_LIB(internalproj,internal_proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+        AC_LANG_POP([C++])
+        if test "$PROJ_FOUND" = "yes"; then
+            PROJ_INCLUDE="-DPROJ_RENAME_SYMBOLS"
+        fi
+    fi
+    if test "$PROJ_FOUND" = "no"; then
+        AC_MSG_ERROR([PROJ 6 symbols not found])
+    fi
+    AC_CHECK_HEADERS([proj.h])
+    if test "$ac_cv_header_proj_h" = "yes" ; then
+        AC_MSG_NOTICE([proj.h found])
+    else
+        AC_MSG_ERROR([proj.h not found])
+    fi
+  else
+
+    ORIG_LIBS="$LIBS"
+    LIBS="-L$with_proj/lib -lproj $ORIG_LIBS"
+    AC_LANG_PUSH([C++])
+    AC_CHECK_LIB(proj,proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+    AC_LANG_POP([C++])
+    if test "$PROJ_FOUND" = "no"; then
+        LIBS="-L$with_proj/lib -lproj -lsqlite3 $ORIG_LIBS"
+        unset ac_cv_lib_proj_proj_create_from_wkt
+        AC_LANG_PUSH([C++])
+        AC_CHECK_LIB(proj,proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+        AC_LANG_POP([C++])
+    fi
+    if test "$PROJ_FOUND" = "no"; then
+        LIBS="-L$with_proj/lib -lproj $ORIG_LIBS"
+        AC_LANG_PUSH([C++])
+        AC_CHECK_LIB(proj,internal_proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+        AC_LANG_POP([C++])
+        if test "$PROJ_FOUND" = "no"; then
+            LIBS="-L$with_proj/lib -lproj -lsqlite3 $ORIG_LIBS"
+            unset ac_cv_lib_proj_internal_proj_create_from_wkt
+            AC_LANG_PUSH([C++])
+            AC_CHECK_LIB(proj,internal_proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+            AC_LANG_POP([C++])
+        fi
+        if test "$PROJ_FOUND" = "yes"; then
+            PROJ_INCLUDE="-DPROJ_RENAME_SYMBOLS"
+        fi
+    fi
+    if test "$PROJ_FOUND" = "no"; then
+        LIBS="-L$with_proj/lib -linternalproj $ORIG_LIBS"
+        AC_LANG_PUSH([C++])
+        AC_CHECK_LIB(internalproj,internal_proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+        AC_LANG_POP([C++])
+        if test "$PROJ_FOUND" = "no"; then
+            LIBS="-L$with_proj/lib -linternalproj -lsqlite3 $ORIG_LIBS"
+            unset ac_cv_lib_internal_proj_internal_proj_create_from_wkt
+            AC_LANG_PUSH([C++])
+            AC_CHECK_LIB(internalproj,internal_proj_create_from_wkt,PROJ_FOUND=yes,PROJ_FOUND=no,)
+            AC_LANG_POP([C++])
+        fi
+        if test "$PROJ_FOUND" = "yes"; then
+            PROJ_INCLUDE="-DPROJ_RENAME_SYMBOLS"
+        fi
+    fi
+    if test "$PROJ_FOUND" = "no"; then
+        AC_MSG_ERROR([PROJ 6 symbols not found])
+    fi
+    if test -r "$with_proj/include/proj.h" ; then
+        PROJ_INCLUDE="$PROJ_INCLUDE -I$with_proj/include"
+        AC_MSG_NOTICE([proj.h found])
+    else
+        AC_MSG_ERROR([proj.h not found])
+    fi
+  fi
+fi
+
+AC_SUBST(PROJ_INCLUDE)
 
 dnl ---------------------------------------------------------------------------
 dnl Check if liblzma is available.
@@ -1224,6 +1347,202 @@ fi
 
 AC_SUBST(ZSTD_SETTING,$ZSTD_SETTING)
 
+GDALFORMATS_ENABLED=
+GDALFORMATS_DISABLED=
+OGRFORMATS_ENABLED=
+OGRFORMATS_ENABLED_CFLAGS=
+OGRFORMATS_DISABLED=
+
+AC_DEFUN([INTERNAL_FORMATS],[aaigrid adrg aigrid airsar arg blx bmp bsb cals ceos ceos2 coasp cosar ctg dimap dted e00grid elas envisat ers fit gff gsg gxf hf2 idrisi ignfheightasciigrid ilwis ingr iris iso8211 jaxapalsar jdem kmlsuperoverlay l1b leveller map mrf msgn ngsgeoid nitf northwood pds prf r raw rmf rs2 safe saga sdts sentinel2 sgi sigdem srtmhgt terragen til tsx usgsdem xpm xyz zmap])
+AC_DEFUN([INTERNAL_OPT_FORMATS],[grib ozi pdf rik])
+AC_DEFUN([INTERNAL_DRIVERS],[aeronavfaa arcgen avc bna cad csv dgn dxf edigeo geoconcept georss gml gmt gpsbabel gpx gtm htf jml mvt ntf openair openfilegdb pgdump rec s57 segukooa segy selafin shape sua svg sxf tiger vdv wasp xplane])dnl
+AC_DEFUN([CURL_FORMATS],[eeda plmosaic rda wcs wms wmts daas])dnl
+AC_DEFUN([CURL_DRIVERS],[amigocloud carto cloudant couchdb csw elastic gft ngw plscenes wfs])dnl
+AC_DEFUN([SQLITE_FORMATS],[rasterlite mbtiles])dnl
+AC_DEFUN([SQLITE_DRIVERS],[gpkg vfk osm])dnl
+AC_DEFUN([EXPAT_DRIVERS],[ods xlsx])dnl
+AC_DEFUN([XERCES_DRIVERS],[nas ili gmlas])dnl
+AC_DEFUN([ODBC_DRIVERS],[odbc pgeo mssqlspatial geomedia walk])dnl
+
+AC_ARG_ENABLE(all-optional-drivers, AS_HELP_STRING([--disable-all-optional-drivers], [disable all non-mandatory internal drivers. Individual drivers can be added with --enable-driver-XXX]))
+if test "x$enable_all_optional_drivers" = "xno"; then :
+  all_drivers_disabled=yes
+else
+  all_drivers_disabled=no
+fi
+
+m4_define([ARG_DRIVER_ENABLED],[dnl
+cur_driver_enabled=yes
+requested=m4_join([_],[$enable_driver],$1)
+if test "$all_drivers_disabled" = "yes"; then :
+  if test "x$requested" = "xyes"; then :
+    cur_driver_enabled=yes
+  else
+    cur_driver_enabled=no
+  fi
+else
+  if test "x$requested" != "xno"; then :
+    cur_driver_enabled=yes
+  else
+    cur_driver_enabled=no
+  fi
+fi
+])
+
+
+
+m4_foreach_w([frmt], INTERNAL_FORMATS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt driver support (enabled by default)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  GDALFORMATS_ENABLED="$GDALFORMATS_ENABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  GDALFORMATS_DISABLED="$GDALFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_foreach_w([frmt],INTERNAL_OPT_FORMATS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt format support (enabled by default, requires dependency)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  GDALFORMATS_DISABLED="$GDALFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_define([_OGRDEFINE],[m4_join([],[-D],m4_toupper([$1]),[_ENABLED])])
+
+m4_foreach_w([frmt],INTERNAL_DRIVERS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt driver support (enabled by default)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  OGRFORMATS_ENABLED="$OGRFORMATS_ENABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+  OGRFORMATS_ENABLED_CFLAGS="$OGRFORMATS_ENABLED_CFLAGS _OGRDEFINE(frmt)"
+else
+  OGRFORMATS_DISABLED="$OGRFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+AC_DEFUN([INTERNAL_DRIVERS_WITH_SAME_NAME_AS_FORMAT],[idrisi pds sdts])dnl
+m4_foreach_w([frmt],INTERNAL_DRIVERS_WITH_SAME_NAME_AS_FORMAT,
+[
+driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+if test "x$driver_enabled" != "xno"; then :
+  OGRFORMATS_ENABLED="$OGRFORMATS_ENABLED frmt"
+  OGRFORMATS_ENABLED_CFLAGS="$OGRFORMATS_ENABLED_CFLAGS _OGRDEFINE(frmt)"
+else
+  OGRFORMATS_DISABLED="$OGRFORMATS_DISABLED frmt"
+fi
+])
+
+m4_foreach_w([frmt],CURL_FORMATS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt format support (enabled by default, requires curl)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  GDALFORMATS_DISABLED="$GDALFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_foreach_w([frmt],CURL_DRIVERS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt driver support (enabled by default, requires curl)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  OGRFORMATS_DISABLED="$OGRFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_foreach_w([frmt],SQLITE_FORMATS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt format support (enabled by default, requires sqlite3)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  GDALFORMATS_DISABLED="$GDALFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_foreach_w([frmt],SQLITE_DRIVERS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt driver support (enabled by default, requires sqlite3)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  OGRFORMATS_DISABLED="$OGRFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_foreach_w([frmt],EXPAT_DRIVERS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt driver support (enabled by default, requires expat)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  OGRFORMATS_DISABLED="$OGRFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_foreach_w([frmt],XERCES_DRIVERS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt driver support (enabled by default, requires xerces-c)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  OGRFORMATS_DISABLED="$OGRFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+m4_foreach_w([frmt],ODBC_DRIVERS,
+[
+AC_ARG_ENABLE(driver-frmt, AS_HELP_STRING([--disable-driver-frmt], [disable frmt driver support (enabled by default, requires odbc)]))dnl
+ARG_DRIVER_ENABLED(frmt)
+if test "$cur_driver_enabled" = "yes"; then :
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=yes
+else
+  OGRFORMATS_DISABLED="$OGRFORMATS_DISABLED frmt"
+  m4_join([_],[INTERNAL_FORMAT],frmt,[ENABLED])=no
+fi
+])
+
+AC_SUBST(OGRFORMATS_ENABLED,$OGRFORMATS_ENABLED)
+AC_SUBST(OGRFORMATS_ENABLED_CFLAGS,$OGRFORMATS_ENABLED_CFLAGS)
+AC_SUBST(GDALFORMATS_ENABLED,$GDALFORMATS_ENABLED)
+
+if test "$LIBZ_SETTING" != "no" ; then
+  if test "x$INTERNAL_FORMAT_rik_ENABLED" = "xyes"; then
+      GDALFORMATS_ENABLED="$GDALFORMATS_ENABLED rik"
+  fi 
+  if test "x$INTERNAL_FORMAT_ozi_ENABLED" = "xyes"; then
+      GDALFORMATS_ENABLED="$GDALFORMATS_ENABLED ozi"
+  fi 
+fi
+
+
+
 dnl ---------------------------------------------------------------------------
 dnl Select an PostgreSQL Library to use, or disable driver.
 dnl ---------------------------------------------------------------------------
@@ -1232,12 +1551,10 @@ PG_CONFIG=no
 
 AC_ARG_WITH(pg,
 	    AS_HELP_STRING([--with-pg[=ARG]],
-	       [Include PostgreSQL GDAL/OGR Support (ARG=path to pg_config)]),,)
+	       [Include PostgreSQL GDAL/OGR Support (ARG=yes,no)]),,)
 
 if test "x$with_pg" = "xyes" -o "x$with_pg" = "x" ; then
-  AC_PATH_PROG(PG_CONFIG, pg_config, no)
-else
-  PG_CONFIG=$with_pg
+  PG_CONFIG=yes
 fi
 
 AC_MSG_CHECKING([for PostgreSQL])
@@ -1251,23 +1568,24 @@ if test "x$PG_CONFIG" = "xno" ; then
   AC_MSG_RESULT([no])
 
 else
-  if test -d ${PG_CONFIG} ; then
-      AC_MSG_RESULT([no])
-      AC_MSG_ERROR([--with-pg argument is a directory.  It should be the path to the pg_config script, often somewhere like /usr/local/pgsql/bin/pg_config.])
-  fi
 
-  if test \! -x ${PG_CONFIG} ; then
-      AC_MSG_RESULT([no])
-      AC_MSG_ERROR([--with-pg argument is a not an executable file.  It should be the path to the pg_config script, often somewhere like /usr/local/pgsql/bin/pg_config.])
-  fi
-
-  AC_MSG_RESULT([yes])
-
-  AC_CHECK_LIB(pq,PQconnectdb,HAVE_PG=yes,HAVE_PG=no,-L`$PG_CONFIG --libdir`)
+  PKG_PROG_PKG_CONFIG([0.21])
+  PKG_CHECK_MODULES([PQ],[libpq > 9.1], [HAVE_PG=yes], [HAVE_PG=no])
 
   if test "${HAVE_PG}" = "yes" ; then
-    LIBS=-L`$PG_CONFIG --libdir`" -lpq $LIBS"
-    PG_INC=-I`$PG_CONFIG --includedir`" -I"`$PG_CONFIG --includedir-server`
+    PG_LIB="${PQ_LIBS}"
+    PG_INC="${PQ_CFLAGS}"
+    SAVED_LIBS="${LIBS}"
+    LIBS="${PG_LIBS}"
+    AC_CHECK_LIB(pq,PQconnectdb,HAVE_PG=yes,HAVE_PG=no)
+    LIBS="${SAVED_LIBS}"
+    if test "${HAVE_PG}" = "yes" ; then
+      LIBS="${PG_LIB} ${LIBS}"
+    fi
+  else
+    if test "x$with_pg" = "xyes"; then
+      AC_MSG_ERROR([--with-pg was requested, but libpq is not available])
+    fi
   fi
 
 fi
@@ -1496,6 +1814,9 @@ AC_SUBST([PNG_SETTING], [$PNG_SETTING])
 
 if test "$PNG_SETTING" != "no" ; then
   OPT_GDAL_FORMATS="png $OPT_GDAL_FORMATS"
+  if test "x$INTERNAL_FORMAT_grib_ENABLED" = "xyes"; then
+  	GDALFORMATS_ENABLED="$GDALFORMATS_ENABLED grib"
+  fi
 fi
 
 dnl ---------------------------------------------------------------------------
@@ -1664,14 +1985,11 @@ else
 
 fi
 
-if test "${HAVE_BIGTIFF}" = "yes" ; then
-  TIFF_OPTS="-DBIGTIFF_SUPPORT"
-
-  LOC_MSG([BigTIFF support enabled.])
+if test "${HAVE_BIGTIFF}" != "yes" ; then
+  AC_MSG_ERROR([libtiff >= 4.0 is required.])
 fi
 
 AC_SUBST(TIFF_SETTING,${TIFF_SETTING})
-AC_SUBST(TIFF_OPTS,${TIFF_OPTS})
 
 dnl ---------------------------------------------------------------------------
 dnl Select a libgeotiff library to use.
@@ -1685,8 +2003,8 @@ if test "$with_geotiff" = "yes" -o "$with_geotiff" = "" ; then
   if test "$TIFF_SETTING" = "internal" ; then
     GEOTIFF_SETTING=internal
   else
-    dnl We now require libgeotiff 1.2.1 (for XTIFFClientOpen).
-    AC_CHECK_LIB(geotiff,XTIFFClientOpen,GEOTIFF_SETTING=external,GEOTIFF_SETTING=internal)
+    dnl We now require libgeotiff 1.5.0
+    AC_CHECK_LIB(geotiff,GTIFAttachPROJContext,GEOTIFF_SETTING=external,GEOTIFF_SETTING=internal)
 
   fi
 
@@ -1731,9 +2049,9 @@ else
 
   GEOTIFF_SETTING=external
 
-  dnl We now require libgeotiff 1.2.1 (for XTIFFClientOpen).
+  dnl We now require libgeotiff 1.5.0
   dnl first check if $with_geotiff/lib has the library:
-  AC_CHECK_LIB(geotiff,XTIFFClientOpen,GEOTIFF_SETTING=external,GEOTIFF_SETTING=not_found,-L$with_geotiff/lib)
+  AC_CHECK_LIB(geotiff,GTIFAttachPROJContext,GEOTIFF_SETTING=external,GEOTIFF_SETTING=not_found,-L$with_geotiff/lib)
 
   if test $GEOTIFF_SETTING = "external" ; then
     LIBS="-L$with_geotiff/lib -lgeotiff $LIBS"
@@ -1742,7 +2060,7 @@ else
     fi
   else
     dnl check if $with_geotiff itself contains the header and library (e.g. as an uninstalled build directory would)
-    AC_CHECK_LIB(geotiff,XTIFFClientOpen,GEOTIFF_SETTING=external,AC_MSG_ERROR([We require at least GeoTIFF 1.2.1. Consider using the one supplied with GDAL]),-L$with_geotiff)
+    AC_CHECK_LIB(geotiff,GTIFAttachPROJContext,GEOTIFF_SETTING=external,AC_MSG_ERROR([We require at least GeoTIFF 1.5.0. Consider using the one supplied with GDAL]),-L$with_geotiff)
     if test $GEOTIFF_SETTING = "external" ; then
       LIBS="-L$with_geotiff -lgeotiff $LIBS"
       EXTRA_INCLUDES="-I$with_geotiff $EXTRA_INCLUDES"
@@ -2234,6 +2552,35 @@ AC_SUBST(MONGODB_ENABLED, $MONGODB_ENABLED)
 AC_SUBST(MONGODB_LIB, $MONGODB_LIB)
 AC_SUBST(MONGODB_INC, $MONGODB_INC)
 
+
+dnl ---------------------------------------------------------------------------
+dnl MongoCXXv3 driver
+dnl ---------------------------------------------------------------------------
+
+AC_ARG_WITH(mongocxxv3,[  --with-mongocxxv3[=ARG]        Include MongoCXXv3 support (ARG=yes or no)],,)
+
+MONGOCXXV3_ENABLED=no
+
+if test "$with_mongocxxv3" = "no" ; then
+
+  echo "MONGODBv3 support disabled."
+
+elif test "$with_mongocxxv3" = "yes" -o "$with_mongocxxv3" = "" ; then
+
+  PKG_PROG_PKG_CONFIG([0.21])
+  PKG_CHECK_MODULES([MONGOCXXV3], [libmongocxx >= 3.4.0], [MONGOCXXV3_ENABLED=yes], [MONGOCXXV3_ENABLED=no])
+
+  if test "$MONGOCXXV3_ENABLED" = "no" -a "$with_mongocxxv3" = "yes" ; then
+    AC_MSG_ERROR([mongocxxv3 requested but no found])
+  fi
+
+fi
+
+AC_SUBST(MONGOCXXV3_ENABLED, $MONGOCXXV3_ENABLED)
+AC_SUBST(MONGOCXXV3_LIBS, $MONGOCXXV3_LIBS)
+AC_SUBST(MONGOCXXV3_CFLAGS, $MONGOCXXV3_CFLAGS)
+
+
 dnl ---------------------------------------------------------------------------
 dnl Select an HDF4 Library to use, or disable driver.
 dnl
@@ -2656,7 +3003,7 @@ AC_SUBST([NETCDF_SETTING], [$NETCDF_SETTING])
 
 if test "$NETCDF_SETTING" != "no" ; then
 
-   AC_CHECK_HEADERS([$NETCDF_INCLUDEDIR/netcdf_mem.h], [NETCDF_MEM=yes], [NETCDF_MEM=no],)
+   AC_CHECK_HEADERS([$NETCDF_INCLUDEDIR/netcdf_mem.h], [NETCDF_MEM=yes], [NETCDF_MEM=no], [#include <$NETCDF_INCLUDEDIR/netcdf.h>])
 
    AC_SUBST([NETCDF_MEM], [$NETCDF_MEM])
    AC_SUBST([NETCDF_ROOT], [$NETCDF_ROOT])
@@ -3262,22 +3609,6 @@ fi
 
 
 dnl ---------------------------------------------------------------------------
-dnl Check for BSB in the local tree.
-dnl ---------------------------------------------------------------------------
-
-AC_ARG_WITH([bsb],
-	    AS_HELP_STRING([--without-bsb],
-	       [Disable BSB driver (legal issues pending]),,)
-
-AC_MSG_CHECKING([for BSB])
-if test "$with_bsb" = yes -o x"$with_bsb" = x ; then
-    OPT_GDAL_FORMATS="bsb $OPT_GDAL_FORMATS"
-    AC_MSG_RESULT([enabled])
-else
-    AC_MSG_RESULT([disabled by user])
-fi
-
-dnl ---------------------------------------------------------------------------
 dnl Check for GeoRaster in the local tree.
 dnl ---------------------------------------------------------------------------
 
@@ -3289,24 +3620,6 @@ if test "$HAVE_ORACLE_OCI" = "yes"; then
     HAVE_GEORASTER=yes
 else
     HAVE_GEORASTER=no
-fi
-
-dnl ---------------------------------------------------------------------------
-dnl Check for GRIB in the local tree.
-dnl ---------------------------------------------------------------------------
-
-AC_ARG_WITH([grib],
-	    AS_HELP_STRING([--without-grib],
-	       [Disable GRIB driver]),,)
-
-AC_MSG_CHECKING([for GRIB])
-if test "$with_grib" = yes -o x"$with_grib" = x ; then
-    OPT_GDAL_FORMATS="grib $OPT_GDAL_FORMATS"
-    HAVE_GRIB=yes
-    AC_MSG_RESULT([enabled])
-else
-    HAVE_GRIB=no
-    AC_MSG_RESULT([disabled by user])
 fi
 
 
@@ -3422,21 +3735,19 @@ AX_LIB_XERCES($XERCES_REQ_VERSION)
 
 if test "$HAVE_XERCES" = "yes"; then
     LIBS="$XERCES_LDFLAGS $LIBS"
+
+m4_foreach_w([frmt],XERCES_DRIVERS,[
+  driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+  if test "x$driver_enabled" = "xyes"; then
+    OGRFORMATS_ENABLED="$OGRFORMATS_ENABLED frmt"
+    OGRFORMATS_ENABLED_CFLAGS="$OGRFORMATS_ENABLED_CFLAGS _OGRDEFINE(frmt)"
+  fi 
+])
+
 fi
 
 AC_SUBST([HAVE_XERCES], $HAVE_XERCES)
 AC_SUBST([XERCES_INCLUDE], $XERCES_CFLAGS)
-
-dnl ---------------------------------------------------------------------------
-dnl Enable NAS if we have Xerces.
-dnl ---------------------------------------------------------------------------
-
-if test "$HAVE_XERCES" = "yes" ; then
-  HAVE_NAS=yes
-else
-  HAVE_NAS=no
-fi
-AC_SUBST([HAVE_NAS], $HAVE_NAS)
 
 dnl ---------------------------------------------------------------------------
 dnl Check for Expat configuration.
@@ -3448,6 +3759,15 @@ AX_LIB_EXPAT($EXPAT_REQ_VERSION)
 
 if test "$HAVE_EXPAT" = "yes"; then
     LIBS="$EXPAT_LDFLAGS $LIBS"
+
+m4_foreach_w([frmt],EXPAT_DRIVERS,[
+  driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+  if test "x$driver_enabled" = "xyes"; then
+    OGRFORMATS_ENABLED="$OGRFORMATS_ENABLED frmt"
+    OGRFORMATS_ENABLED_CFLAGS="$OGRFORMATS_ENABLED_CFLAGS _OGRDEFINE(frmt)"
+  fi 
+])
+
 fi
 
 AC_SUBST([HAVE_EXPAT], $HAVE_EXPAT)
@@ -3528,6 +3848,16 @@ else
   EXTRA_INCLUDES="-I$with_odbc -I$with_odbc/include $EXTRA_INCLUDES"
 
   echo "using odbc library from $with_odbc."
+fi
+
+if test "$ODBC_SETTING" = "yes"  ; then
+m4_foreach_w([frmt],ODBC_DRIVERS,[
+  driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+  if test "x$driver_enabled" = "xyes"; then
+    OGRFORMATS_ENABLED="$OGRFORMATS_ENABLED frmt"
+    OGRFORMATS_ENABLED_CFLAGS="$OGRFORMATS_ENABLED_CFLAGS _OGRDEFINE(frmt)"
+  fi 
+])
 fi
 
 AC_SUBST(ODBC_SETTING,$ODBC_SETTING)
@@ -3686,7 +4016,19 @@ if test "$CURL_SETTING" = "yes" ; then
 
   CURL_INC=`$LIBCURL_CONFIG --cflags`
   CURL_LIB=`$LIBCURL_CONFIG --libs`
-  OPT_GDAL_FORMATS="wcs wms plmosaic wmts rda eeda $OPT_GDAL_FORMATS"
+m4_foreach_w([frmt],CURL_FORMATS,[
+  driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+  if test "x$driver_enabled" = "xyes"; then
+    GDALFORMATS_ENABLED="$GDALFORMATS_ENABLED frmt"
+  fi 
+])
+m4_foreach_w([frmt],CURL_DRIVERS,[
+  driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+  if test "x$driver_enabled" = "xyes"; then
+    OGRFORMATS_ENABLED="$OGRFORMATS_ENABLED frmt"
+    OGRFORMATS_ENABLED_CFLAGS="$OGRFORMATS_ENABLED_CFLAGS _OGRDEFINE(frmt)"
+  fi 
+])
 
 fi
 
@@ -3755,10 +4097,10 @@ elif test "$with_spatialite" = "yes"; then
         AC_MSG_CHECKING([for spatialite.h in /usr/include or /usr/local/include])
         if test -f "/usr/include/spatialite.h" -o -f "/usr/local/include/spatialite.h"; then
             AC_MSG_RESULT(found)
-            AC_CHECK_LIB(spatialite,spatialite_init,SPATIALITE_INIT_FOUND=yes,SPATIALITE_INIT_FOUND=no,)
+            AC_CHECK_LIB(spatialite,spatialite_init,SPATIALITE_INIT_FOUND=yes,SPATIALITE_INIT_FOUND=no,-lsqlite3 -lproj)
             if test "$SPATIALITE_INIT_FOUND" = "yes"; then
                 HAVE_SPATIALITE=yes
-                SPATIALITE_LIBS="-lspatialite -lsqlite3"
+                SPATIALITE_LIBS="-lspatialite -lsqlite3 -lproj"
                 LIBS="$LIBS $SPATIALITE_LIBS"
                 HAVE_SQLITE3=yes
             fi
@@ -3848,6 +4190,25 @@ AC_SUBST([SQLITE_INC], $SQLITE3_CFLAGS)
 AC_SUBST([HAVE_SQLITE], $HAVE_SQLITE3)
 AC_SUBST([SQLITE_HAS_COLUMN_METADATA], $SQLITE_HAS_COLUMN_METADATA)
 HAVE_SQLITE=$HAVE_SQLITE3
+
+if test "$HAVE_SQLITE3" = "yes"; then
+m4_foreach_w([frmt],SQLITE_FORMATS,[
+  driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+  if test "x$driver_enabled" = "xyes"; then
+    GDALFORMATS_ENABLED="$GDALFORMATS_ENABLED frmt"
+  fi 
+])
+
+m4_foreach_w([frmt],SQLITE_DRIVERS,[
+  driver_enabled=m4_join([_],[$INTERNAL_FORMAT],frmt,[ENABLED])
+  if test "x$driver_enabled" = "xyes"; then
+    OGRFORMATS_ENABLED="$OGRFORMATS_ENABLED frmt"
+    OGRFORMATS_ENABLED_CFLAGS="$OGRFORMATS_ENABLED_CFLAGS _OGRDEFINE(frmt)"
+  fi 
+])
+
+fi
+
 
 dnl ---------------------------------------------------------------------------
 dnl Check for librasterlite2.
@@ -4156,6 +4517,8 @@ elif test "$with_webp" != "no" -a "$with_webp" != ""; then
   fi
 
 fi
+
+AC_SUBST(WEBP_SETTING,$WEBP_SETTING)
 
 if test "$WEBP_SETTING" != "no" ; then
   OPT_GDAL_FORMATS="webp $OPT_GDAL_FORMATS"
@@ -4482,6 +4845,13 @@ else
 fi
 
 AC_SUBST(PDF_PLUGIN, $PDF_PLUGIN)
+if test "$PDF_PLUGIN" != "yes" ; then
+  if test "x$INTERNAL_FORMAT_pdf_ENABLED" = "xyes"; then
+    if test "$LIBZ_SETTING" != "no" ; then
+      GDALFORMATS_ENABLED="$GDALFORMATS_ENABLED pdf"
+    fi
+  fi 
+fi
 
 
 dnl ---------------------------------------------------------------------------
@@ -4491,152 +4861,35 @@ dnl ---------------------------------------------------------------------------
 AC_ARG_WITH(poppler,[  --with-poppler[=ARG]    Include poppler(for PDF) support (ARG=no(default), yes or poppler install path)],,)
 
 HAVE_POPPLER=no
-POPPLER_HAS_OPTCONTENT=no
-POPPLER_BASE_STREAM_HAS_TWO_ARGS=no
-POPPLER_0_20_OR_LATER=no
-POPPLER_0_23_OR_LATER=no
-POPPLER_0_58_OR_LATER=no
+POPPLER_MAJOR_VERSION=
+POPPLER_MINOR_VERSION=
 
 AC_MSG_CHECKING([for poppler])
 
 if test "$with_poppler" != "no" -a "$with_poppler" != ""; then
 
-    if test "$with_poppler" = "yes" ; then
-        TEST_POPPLER_INC="-I/usr/include -I/usr/include/poppler"
-        TEST_POPPLER_LIB="-lpoppler"
-    else
-        TEST_POPPLER_INC="-I$with_poppler/include -I$with_poppler/include/poppler"
-        TEST_POPPLER_LIB="-L$with_poppler/lib -lpoppler"
-    fi
-
-    # Check that we can accept Page::pageObj private member
-    rm -f testpoppler.*
-    echo '#define private public' > testpoppler.cpp
-    echo '#include <poppler/Page.h>' >> testpoppler.cpp
-    echo '#include <poppler/splash/SplashBitmap.h>' >> testpoppler.cpp
-    echo 'int main(int argc, char** argv) { return &(((Page*)0x8000)->pageObj) == 0; } ' >> testpoppler.cpp
-
-    if test -z "`${CXX} ${CXXFLAGS} ${CPPFLAGS} testpoppler.cpp -o testpoppler ${TEST_POPPLER_INC} ${TEST_POPPLER_LIB} 2>&1`" ; then
+    PKG_PROG_PKG_CONFIG([0.21])
+    PKG_CHECK_MODULES([POPPLER], [poppler >= 0.23.0],
+            [POPPLER_VERSION=`$PKG_CONFIG --modversion poppler`], [POPPLER_VERSION=])
+    if test "$POPPLER_VERSION" != ""; then
         HAVE_POPPLER=yes
-    else
-        # poppler 0.23.0 needs to be linked against pthread
-        TEST_POPPLER_LIB="${TEST_POPPLER_LIB} -lpthread"
-        if test -z "`${CXX} ${CXXFLAGS} ${CPPFLAGS} testpoppler.cpp -o testpoppler ${TEST_POPPLER_INC} ${TEST_POPPLER_LIB} 2>&1`" ; then
-            HAVE_POPPLER=yes
-        fi
+        POPPLER_MAJOR_VERSION=`expr $POPPLER_VERSION : '\([[0-9]]*\)'`
+        POPPLER_MINOR_VERSION=`expr $POPPLER_VERSION : '[[0-9]]*\.\([[0-9]]*\)'`
+        POPPLER_CFLAGS=`echo $POPPLER_CFLAGS $POPPLER_CFLAGS | sed "s/include\/poppler/include/"`
     fi
-
-    if test "$HAVE_POPPLER" = "yes"; then
-        if test "$PDF_PLUGIN" = "no"; then
-            LIBS="${TEST_POPPLER_LIB} ${LIBS}"
-        fi
-        AC_MSG_RESULT([yes])
-        POPPLER_INC=$TEST_POPPLER_INC
-        POPPLER_PLUGIN_LIB="${TEST_POPPLER_LIB}"
-
-        CHECK_OTHER_POPPLER_VERSION=yes
-
-        # And now we check if we have Poppler >= 0.58.0
-        AC_MSG_CHECKING([if Object does have new API (>= 0.58.0)])
-        rm -f testpoppler.*
-        echo '#include <poppler/Object.h>' > testpoppler.cpp
-        echo 'int main(int argc, char** argv) { Object o(objNull); return 0; }' >> testpoppler.cpp
-        if test -z "`${CXX} ${CXXFLAGS} ${CPPFLAGS} testpoppler.cpp -c ${POPPLER_INC} 2>&1`" ; then
-            POPPLER_0_58_OR_LATER=yes
-            POPPLER_0_23_OR_LATER=yes
-            POPPLER_0_20_OR_LATER=yes
-            POPPLER_BASE_STREAM_HAS_TWO_ARGS=yes
-            POPPLER_HAS_OPTCONTENT=yes
-            CHECK_OTHER_POPPLER_VERSION=no
-            AC_MSG_RESULT([yes])
-        else
-            AC_MSG_RESULT([no])
-        fi
-
-        if test "$CHECK_OTHER_POPPLER_VERSION" = "yes"; then
-
-            # And now try another dirty thing, but this one is
-            # optional.
-            AC_MSG_CHECKING([if Catalog::optContent exists])
-            rm -f testpoppler.*
-            echo '#define private public' > testpoppler.cpp
-            echo '#include <poppler/Object.h>' >> testpoppler.cpp
-            echo '#include <poppler/Catalog.h>' >> testpoppler.cpp
-            echo 'int main(int argc, char** argv) { return &(((Catalog*)0x8000)->optContent) == 0; }' >> testpoppler.cpp
-            if test -z "`${CXX} ${CXXFLAGS} ${CPPFLAGS} testpoppler.cpp -c ${POPPLER_INC} 2>&1`" ; then
-                POPPLER_HAS_OPTCONTENT=yes
-                AC_MSG_RESULT([yes])
-            else
-                AC_MSG_RESULT([no])
-            fi
-
-            # And now we check if we have Poppler >= 0.16.0
-            AC_MSG_CHECKING([if BaseStream constructor needs 2 arguments])
-            rm -f testpoppler.*
-            echo '#include <poppler/Object.h>' > testpoppler.cpp
-            echo '#include <poppler/Stream.h>' >> testpoppler.cpp
-            echo 'class TestStream: public BaseStream {' >> testpoppler.cpp
-            echo 'public:' >> testpoppler.cpp
-            echo '  TestStream() : BaseStream(0,0) {}' >> testpoppler.cpp
-            echo '};' >> testpoppler.cpp
-            echo 'int main(int argc, char** argv) { return 0; }' >> testpoppler.cpp
-            if test -z "`${CXX} ${CXXFLAGS} ${CPPFLAGS} testpoppler.cpp -c ${POPPLER_INC} 2>&1`" ; then
-                POPPLER_BASE_STREAM_HAS_TWO_ARGS=yes
-                AC_MSG_RESULT([yes])
-
-                # And now we check if we have Poppler >= 0.20.0
-                AC_MSG_CHECKING([if we have Poppler >= 0.20.0])
-                rm -f testpoppler.*
-                echo '#include <poppler/Error.h>' > testpoppler.cpp
-                echo 'int main(int argc, char** argv) { setErrorCallback(0,0); return 0; }' >> testpoppler.cpp
-                if test -z "`${CXX} ${CXXFLAGS} ${CPPFLAGS} testpoppler.cpp -c ${POPPLER_INC} 2>&1`" ; then
-                    POPPLER_0_20_OR_LATER=yes
-                    AC_MSG_RESULT([yes])
-
-                    # And now we check if we have Poppler >= 0.23.0
-                    AC_MSG_CHECKING([if we have Poppler >= 0.23.0])
-                    rm -f testpoppler.*
-                    echo '#include <poppler/Object.h>' > testpoppler.cpp
-                    echo '#include <poppler/Stream.h>' >> testpoppler.cpp
-                    echo 'class TestStream: public BaseStream {' >> testpoppler.cpp
-                    echo 'public:' >> testpoppler.cpp
-                    echo '  TestStream() : BaseStream(0,0) {}' >> testpoppler.cpp
-                    echo '  ~TestStream() {}' >> testpoppler.cpp
-                    echo '  virtual BaseStream *copy() { return BaseStream::copy(); }' >> testpoppler.cpp
-                    echo '};' >> testpoppler.cpp
-                    echo 'int main(int argc, char** argv) { return 0; }' >> testpoppler.cpp
-                    if test -z "`${CXX} ${CXXFLAGS} ${CPPFLAGS} testpoppler.cpp -c ${POPPLER_INC} 2>&1`" ; then
-                        POPPLER_0_23_OR_LATER=yes
-                        AC_MSG_RESULT([yes])
-                    else
-                        AC_MSG_RESULT([no])
-                    fi
-
-                else
-                    AC_MSG_RESULT([no])
-                fi
-
-            else
-                AC_MSG_RESULT([no])
-            fi
-        fi
-    else
-        AC_MSG_RESULT([no])
-    fi
-    rm -f testpoppler.*
-    rm -f testpoppler
 else
     AC_MSG_RESULT([disabled])
 fi
 
+if test "$HAVE_POPPLER" = "yes" -a "$PDF_PLUGIN" = "no"; then
+    LIBS="${POPPLER_LIBS} ${LIBS}"
+fi
+
 AC_SUBST(HAVE_POPPLER, $HAVE_POPPLER)
-AC_SUBST(POPPLER_HAS_OPTCONTENT, $POPPLER_HAS_OPTCONTENT)
-AC_SUBST(POPPLER_BASE_STREAM_HAS_TWO_ARGS, $POPPLER_BASE_STREAM_HAS_TWO_ARGS)
-AC_SUBST(POPPLER_0_20_OR_LATER, $POPPLER_0_20_OR_LATER)
-AC_SUBST(POPPLER_0_23_OR_LATER, $POPPLER_0_23_OR_LATER)
-AC_SUBST(POPPLER_0_58_OR_LATER, $POPPLER_0_58_OR_LATER)
-AC_SUBST(POPPLER_INC, $POPPLER_INC)
-AC_SUBST(POPPLER_PLUGIN_LIB, $POPPLER_PLUGIN_LIB)
+AC_SUBST(POPPLER_MAJOR_VERSION, $POPPLER_MAJOR_VERSION)
+AC_SUBST(POPPLER_MINOR_VERSION, $POPPLER_MINOR_VERSION)
+AC_SUBST(POPPLER_CFLAGS, $POPPLER_CFLAGS)
+AC_SUBST(POPPLER_PLUGIN_LIB, $POPPLER_LIBS)
 
 dnl ---------------------------------------------------------------------------
 dnl Check if libpodofo is available
@@ -4837,135 +5090,6 @@ fi
 AC_SUBST(HAVE_PDFIUM, $HAVE_PDFIUM)
 AC_SUBST(PDFIUM_INC, $PDFIUM_INC)
 AC_SUBST(PDFIUM_PLUGIN_LIB, $PDFIUM_PLUGIN_LIB)
-
-dnl ---------------------------------------------------------------------------
-dnl PROJ.4 related stuff.
-dnl ---------------------------------------------------------------------------
-
-AC_MSG_CHECKING([how to link PROJ library])
-
-AC_ARG_WITH(proj,[  --with-proj=ARG Compile with PROJ.x (ARG=no or path)],,)
-
-dnl Could probably be removed once proj 5.0.1 is OK. There are known issues proj 5.0.0.
-AC_ARG_WITH(proj5_api,[  --with-proj5-api=ARG Allow using PROJ.5 new API  (ARG=no/yes, default to yes)],,)
-
-dnl Legacy
-AC_ARG_WITH(static_proj4,[  --with-static-proj4=ARG Compile with PROJ.4 statically (deprecated, use --with-proj instead) (ARG=no or path)],,)
-if test "x$with_static_proj4" != "x" -a "x$with_proj" != "x" ; then
-    AC_MSG_ERROR([only one of --static-proj4 and --proj can be used])
-fi
-if test "x$with_static_proj4" != "x"; then
-    AC_MSG_WARN([--with-static-proj4 is deprecated. Please use --with-proj])
-    with_proj=$with_static_proj4
-fi
-
-if test "x$with_proj" = "xno" -o "x$with_proj" = "x"; then
-
-  PROJ_STATIC=no
-  AC_MSG_RESULT([link dynamically.])
-
-else
-
-  PROJ_STATIC=no
-  AC_MSG_RESULT([link statically.])
-
-  ORIG_LIBS="$LIBS"
-  PROJ_LIB="-lproj"
-
-  if test "x$with_proj" = "xyes" ; then
-    LIBS="$PROJ_LIB $ORIG_LIBS"
-    if test "$with_proj5_api" = "yes" -o "$with_proj5_api" = ""; then
-        AC_CHECK_LIB(proj,proj_create,PROJ_STATIC=yes,PROJ_STATIC=no,)
-    fi
-    if test "$PROJ_STATIC" = "yes"; then
-        AC_CHECK_HEADERS([proj.h])
-        if test "$ac_cv_header_proj_h" = "yes" ; then
-            AC_MSG_NOTICE([proj >= 5 detected])
-            PROJ_VERSION=5
-        else
-            PROJ_STATIC=no
-        fi
-    else
-        AC_CHECK_LIB(proj,pj_init,PROJ_STATIC=yes,PROJ_STATIC=no,)
-        AC_MSG_NOTICE([proj 4.x detected])
-        PROJ_VERSION=4
-    fi
-  else
-
-    LIBS="-L$with_proj/lib $PROJ_LIB $ORIG_LIBS"
-    if test "$with_proj5_api" = "yes" -o "$with_proj5_api" = ""; then
-        AC_CHECK_LIB(proj,proj_create,PROJ_STATIC=yes,PROJ_STATIC=no,)
-    fi
-    if test "$PROJ_STATIC" = "yes"; then
-        if test -r "$with_proj/include/proj.h" ; then
-          PROJ_INCLUDE="-I$with_proj/include"
-          AC_MSG_NOTICE([proj >= 5 detected])
-          PROJ_VERSION=5
-        else
-          AC_MSG_ERROR([proj.h not found])
-        fi
-    else
-        AC_CHECK_LIB(proj,pj_init,PROJ_STATIC=yes,PROJ_STATIC=no,)
-
-        if test "$PROJ_STATIC" = "no"; then
-            dnl Disable previous value cached by the previous AC_CHECK_LIB test :
-            dnl AC_CHECK_LIB caches the result value for a couple (function, library)
-            dnl in a variable named "ac_cv_lib_<library name>_<function name>".
-            dnl In order to try to locate the library in different locations, using
-            dnl different values of LIBS, we have to 'unset' this variable after
-            dnl each negative test.
-
-            unset ac_cv_lib_proj_pj_init
-
-            LIBS="-L$with_proj/src $PROJ_LIB $ORIG_LIBS"
-            AC_CHECK_LIB(proj,pj_init,PROJ_STATIC=yes,PROJ_STATIC=no,)
-        fi
-
-        if test "$PROJ_STATIC" = "no"; then
-            unset ac_cv_lib_proj_pj_init
-            LIBS="-L$with_proj/src/.libs $PROJ_LIB $ORIG_LIBS"
-            AC_CHECK_LIB(proj,pj_init,PROJ_STATIC=yes,PROJ_STATIC=no,)
-        fi
-
-        if test "$PROJ_STATIC" = "no"; then
-            unset ac_cv_lib_proj_pj_init
-            LIBS="-L$with_proj $PROJ_LIB $ORIG_LIBS"
-            AC_CHECK_LIB(proj,pj_init,PROJ_STATIC=yes,PROJ_STATIC=no,)
-        fi
-
-        if test "$PROJ_STATIC" = "no"; then
-            unset ac_cv_lib_proj_pj_init
-            LIBS="$PROJ_LIB $ORIG_LIBS"
-            AC_CHECK_LIB(proj,pj_init,PROJ_STATIC=yes,PROJ_STATIC=no,)
-        fi
-
-        if test "$PROJ_STATIC" = "yes"; then
-            AC_MSG_NOTICE([proj 4.x detected])
-            PROJ_VERSION=4
-        fi
-    fi
-  fi
-  if test "$PROJ_STATIC" = "no"; then
-      LIBS="$ORIG_LIBS"
-  fi
-
-  if test "$PROJ_VERSION" = "4"; then
-      if test -r "$with_proj/src/proj_api.h" ; then
-          PROJ_INCLUDE="-I$with_proj/src"
-      elif test -r "$with_proj/include/proj_api.h" ; then
-          PROJ_INCLUDE="-I$with_proj/include"
-      elif test -r "$with_proj/proj_api.h" ; then
-          PROJ_INCLUDE="-I$with_proj"
-      fi
-  fi
-  if test "$PROJ_STATIC" = "no"; then
-    AC_MSG_ERROR([cannot find proj])
-  fi
-fi
-
-AC_SUBST(PROJ_STATIC)
-AC_SUBST(PROJ_INCLUDE)
-AC_SUBST(PROJ_VERSION)
 
 dnl ---------------------------------------------------------------------------
 dnl Get/override version.
@@ -5316,6 +5440,43 @@ AC_SUBST(HDFS_ENABLED,$HDFS_ENABLED)
 AC_SUBST(HDFS_LIB,$HDFS_LIB)
 AC_SUBST(HDFS_INC,$HDFS_INC)
 AC_SUBST(JNI_LIB,$JNI_LIB)
+
+dnl ---------------------------------------------------------------------------
+dnl TileDB support
+dnl ---------------------------------------------------------------------------
+
+AC_ARG_WITH(tiledb,[  --with-tiledb[=ARG]    Include TileDB support (ARG=no, yes or tiledb install root path)],,)
+
+TILEDB_SETTING=no
+
+if test "$with_tiledb" = "yes" -o "$with_tiledb" = "" ; then
+
+  AC_CHECK_LIB(tiledb,tiledb_coords,TILEDB_SETTING=yes,TILEDB_SETTING=no,)
+  
+  if test "$TILEDB_SETTING" = "yes" ; then
+    LIBS="-ltiledb $LIBS"
+  else
+    echo "libtiledb not found - TileDB support disabled"
+  fi
+
+elif test "$with_tiledb" != "no" -a "$with_tiledb" != ""; then
+
+  AC_CHECK_LIB(tiledb,tiledb_coords,TILEDB_SETTING=yes,TILEDB_SETTING=no,-L$with_tiledb/lib -ltiledb)
+
+  if test "$TILEDB_SETTING" = "yes" ; then
+    LIBS="-L$with_tiledb/lib -ltiledb $LIBS"
+    EXTRA_INCLUDES="-I$with_tiledb/include $EXTRA_INCLUDES"
+  else
+    echo "libtiledb not found - TileDB support disabled"
+  fi
+
+fi
+
+AC_SUBST(TILEDB_SETTING,$TILEDB_SETTING)
+
+if test "$TILEDB_SETTING" != "no" ; then
+  OPT_GDAL_FORMATS="tiledb $OPT_GDAL_FORMATS"
+fi
 
 dnl ---------------------------------------------------------------------------
 dnl MDB driver
@@ -5692,24 +5853,6 @@ fi
 AC_SUBST(HAVE_OPENSSL_CRYPTO,$HAVE_OPENSSL_CRYPTO)
 
 dnl ---------------------------------------------------------------------------
-dnl Whether to include MRF in the build
-dnl ---------------------------------------------------------------------------
-
-AC_ARG_WITH([mrf],
-            AS_HELP_STRING([--without-mrf],
-               [Disable MRF driver]),,)
-
-AC_MSG_CHECKING([for MRF])
-if test "$with_mrf" = yes -o x"$with_mrf" = x ; then
-    OPT_GDAL_FORMATS="mrf $OPT_GDAL_FORMATS"
-    HAVE_MRF=yes
-    AC_MSG_RESULT([enabled])
-else
-    HAVE_MRF=no
-    AC_MSG_RESULT([disabled by user])
-fi
-
-dnl ---------------------------------------------------------------------------
 dnl Whether to include LERC in the build
 dnl ---------------------------------------------------------------------------
 
@@ -5793,11 +5936,6 @@ case "${host_os}" in
         ;;
 esac
 
-dnl FileGDB v1.5
-if test "$PROJ_STATIC" = "no" -a "$FGDB_ENABLED" = "yes" -a "$FGDB_HAS_PROJ4" = "yes"; then
-    AC_MSG_ERROR([--without-static-proj and --with-fgdb are both available. There might be some incompatibility between system libproj and the embedded copy within libFileGDBAPI])
-fi
-
 AC_OUTPUT(GDALmake.opt)
 
 dnl ---------------------------------------------------------------------------
@@ -5852,22 +5990,18 @@ LOC_MSG([  MrSID support:             ${HAVE_MRSID}])
 LOC_MSG([  MrSID/MG4 Lidar support:   ${HAVE_MRSID_LIDAR}])
 LOC_MSG([  JP2Lura support:           ${HAVE_JP2LURA}])
 LOC_MSG([  MSG support:               ${HAVE_MSG}])
-LOC_MSG([  GRIB support:              ${HAVE_GRIB}])
 LOC_MSG([  EPSILON support:           ${EPSILON_SETTING}])
 LOC_MSG([  WebP support:              ${WEBP_SETTING}])
 LOC_MSG([  cURL support (wms/wcs/...):${CURL_SETTING}])
 LOC_MSG([  PostgreSQL support:        ${HAVE_PG}])
-LOC_MSG([  MRF support:               ${HAVE_MRF}])
 LOC_MSG([  LERC support:              ${HAVE_LERC}])
 LOC_MSG([  MySQL support:             ${HAVE_MYSQL}])
 LOC_MSG([  Ingres support:            ${HAVE_INGRES}])
 LOC_MSG([  Xerces-C support:          ${HAVE_XERCES}])
-LOC_MSG([  NAS support:               ${HAVE_NAS}])
 LOC_MSG([  Expat support:             ${HAVE_EXPAT}])
 LOC_MSG([  libxml2 support:           ${HAVE_LIBXML2}])
 LOC_MSG([  Google libkml support:     ${HAVE_LIBKML}])
 LOC_MSG([  ODBC support:              ${ODBC_SETTING}])
-LOC_MSG([  PGeo support:              ${ODBC_SETTING}])
 LOC_MSG([  FGDB support:              ${FGDB_ENABLED}])
 LOC_MSG([  MDB support:               ${MDB_ENABLED}])
 LOC_MSG([  PCIDSK support:            ${PCIDSK_SETTING}])
@@ -5896,8 +6030,14 @@ LOC_MSG([  Armadillo support:         ${HAVE_ARMADILLO}])
 LOC_MSG([  FreeXL support:            ${HAVE_FREEXL}])
 LOC_MSG([  SOSI support:              ${SOSI_ENABLED}])
 LOC_MSG([  MongoDB support:           ${MONGODB_ENABLED}])
+LOC_MSG([  MongoCXX v3 support:       ${MONGOCXXV3_ENABLED}])
 LOC_MSG([  HDFS support:              ${HDFS_ENABLED}])
+LOC_MSG([  TileDB support:            ${TILEDB_SETTING}])
 LOC_MSG([  userfaultfd support:       ${ENABLE_UFFD}])
+LOC_MSG([  misc. gdal formats:       ${GDALFORMATS_ENABLED}])
+LOC_MSG([  disabled gdal formats:    ${GDALFORMATS_DISABLED}])
+LOC_MSG([  misc. ogr formats:        ${OGRFORMATS_ENABLED}])
+LOC_MSG([  disabled ogr formats:     ${OGRFORMATS_DISABLED}])
 
 LOC_MSG()
 if test ! -z "`uname | grep Darwin`" ; then
@@ -5911,7 +6051,7 @@ else
 fi
 LOC_MSG([  SWIG Bindings:             ${WHAT_BINDINGS}])
 LOC_MSG()
-LOC_MSG([  Statically link PROJ:      ${PROJ_STATIC}])
+LOC_MSG([  PROJ >= 6:                 yes])
 LOC_MSG([  enable GNM building:       ${GNM_ENABLED}])
 LOC_MSG([  enable pthread support:    ${PTHREAD_ENABLED}])
 LOC_MSG([  enable POSIX iconv support:${am_cv_func_iconv}])

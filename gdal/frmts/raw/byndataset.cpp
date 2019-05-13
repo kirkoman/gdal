@@ -396,7 +396,7 @@ CPLErr BYNDataset::SetGeoTransform( double * padfTransform )
 /*                          GetProjectionRef()                          */
 /************************************************************************/
 
-const char *BYNDataset::GetProjectionRef()
+const char *BYNDataset::_GetProjectionRef()
 
 {
     if( pszProjection )
@@ -485,7 +485,7 @@ const char *BYNDataset::GetProjectionRef()
 /*                          SetProjectionRef()                          */
 /************************************************************************/
 
-CPLErr BYNDataset::SetProjection( const char* pszProjString )
+CPLErr BYNDataset::_SetProjection( const char* pszProjString )
 
 {
     OGRSpatialReference oSRS;
@@ -815,9 +815,7 @@ void BYNDataset::UpdateHeader()
 
     header2buffer( &hHeader, abyBuf );
 
-    const char* pszValue = nullptr;
-
-    pszValue = GetMetadataItem("GLOBAL");
+    const char* pszValue = GetMetadataItem("GLOBAL");
     if(pszValue != nullptr) 
         hHeader.nGlobal  = static_cast<GInt16>( atoi( pszValue ) );
 

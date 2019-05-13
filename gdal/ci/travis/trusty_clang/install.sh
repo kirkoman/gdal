@@ -2,14 +2,36 @@
 
 set -e
 
-cd gdal
 # --with-mongocxx=/usr/local
 export CCACHE_CPP2=yes
+export CC="ccache clang"
+export CXX="ccache clang++"
 
+cd gdal
 scripts/detect_tabulations.sh
 scripts/detect_printf.sh
 scripts/detect_self_assignment.sh
 scripts/detect_suspicious_char_digit_zero.sh
+cd ..
+
+SCRIPT_DIR=$(dirname "$0")
+case $SCRIPT_DIR in
+    "/"*)
+        ;;
+    ".")
+        SCRIPT_DIR=$(pwd)
+        ;;
+    *)
+        SCRIPT_DIR=$(pwd)/$(dirname "$0")
+        ;;
+esac
+$SCRIPT_DIR/../common_install.sh
+
+# Build proj
+(cd proj; ./autogen.sh && CFLAGS='-DPROJ_RENAME_SYMBOLS' CXXFLAGS='-DPROJ_RENAME_SYMBOLS' ./configure --disable-static --prefix=/usr/local && make -j3)
+(cd proj; sudo make -j3 install && sudo ldconfig)
+
+cd gdal
 
 ARCH_FLAGS=""
 AVX2_AVAIL=1
@@ -22,7 +44,7 @@ else
         grep flags /proc/cpuinfo | head -n 1
 fi
 
-CFLAGS=$ARCH_FLAGS CXXFLAGS=$ARCH_FLAGS CC="ccache clang" CXX="ccache clang" LDFLAGS="-lstdc++" ./configure --prefix=/usr --without-libtool --with-jpeg12 --with-python --with-poppler --with-podofo --with-spatialite --with-mysql --with-liblzma --with-webp --with-java --with-mdb --with-jvm-lib-add-rpath --with-epsilon --with-ecw=/usr/local --with-mrsid=/usr/local --with-mrsid-lidar=/usr/local --with-fgdb=/usr/local --with-libkml --with-null -with-libtiff=internal
+CFLAGS=$ARCH_FLAGS CXXFLAGS=$ARCH_FLAGS  LDFLAGS="-lstdc++" ./configure --prefix=/usr --without-libtool --with-jpeg12 --with-python --with-poppler --with-podofo --with-spatialite --with-mysql --with-liblzma --with-webp --with-java --with-mdb --with-jvm-lib-add-rpath --with-epsilon --with-ecw=/usr/local --with-mrsid=/usr/local --with-mrsid-lidar=/usr/local --with-fgdb=/usr/local --with-libkml --with-null -with-libtiff=internal --with-proj=/usr/local
 # --with-gta
 
 make docs >docs_log.txt 2>&1
@@ -41,7 +63,7 @@ make USER_DEFS="-Wextra -Werror" -j3
   export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
   export PATH=$JAVA_HOME/jre/bin:$PATH
   java -version
-  make
+  (make 2>/tmp/log.txt || cat /tmp/log.txt)
   mv java.opt.bak java.opt
 )
 
@@ -51,7 +73,7 @@ make
 cd ../..
 cd swig/csharp
 make generate
-make
+make 2>/tmp/log.txt || cat /tmp/log.txt
 cd ../..
 sudo rm -f /usr/lib/libgdal.so*
 sudo rm -f /usr/include/gdal*.h /usr/include/ogr*.h /usr/include/gnm*.h /usr/include/cpl*.h 

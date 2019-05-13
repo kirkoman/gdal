@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env pytest
 ###############################################################################
 # $Id$
 #
@@ -28,60 +28,37 @@
 # DEALINGS IN THE SOFTWARE.
 ###############################################################################
 
-import sys
+import pytest
+
 from osgeo import gdal
 
-sys.path.append('../pymod')
 
-import gdaltest
-
-###############################################################################
-#
+pytestmark = pytest.mark.require_driver('FITS')
 
 
-def fits_init():
-    gdaltest.fitsDriver = gdal.GetDriverByName('FITS')
-    if gdaltest.fitsDriver is None:
-        return 'skip'
+@pytest.mark.parametrize(
+    'filename',
+    ['byte', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'float64']
+)
+def test_fits(filename):
+    driver = gdal.GetDriverByName('FITS')
 
-    return 'success'
+    ds = gdal.Open('../gcore/data/' + filename + '.tif')
+    driver.CreateCopy('tmp/' + filename + '.fits', ds, options=['PAGESIZE=2,2'])
 
-###############################################################################
-#
+    ds2 = gdal.Open('tmp/' + filename + '.fits')
+    assert ds2.GetRasterBand(1).Checksum() == ds.GetRasterBand(1).Checksum()
 
+    assert ds2.GetRasterBand(1).DataType == ds.GetRasterBand(1).DataType
 
-class TestFITS(object):
-    def __init__(self, fileName):
-        self.fileName = fileName
+    ds2 = None
+    driver.Delete('tmp/' + filename + '.fits')
 
-    def test(self):
-        if gdaltest.fitsDriver is None:
-            return 'skip'
-
-        ds = gdal.Open('../gcore/data/' + self.fileName + '.tif')
-        gdaltest.fitsDriver.CreateCopy('tmp/' + self.fileName + '.fits', ds, options=['PAGESIZE=2,2'])
-
-        ds2 = gdal.Open('tmp/' + self.fileName + '.fits')
-        if ds2.GetRasterBand(1).Checksum() != ds.GetRasterBand(1).Checksum():
-            return 'fail'
-
-        if ds2.GetRasterBand(1).DataType != ds.GetRasterBand(1).DataType:
-            return 'fail'
-
-        ds2 = None
-        gdaltest.fitsDriver.Delete('tmp/' + self.fileName + '.fits')
-        return 'success'
-
-###############################################################################
-#
-
-
-def fits_metadata():
-    if gdaltest.fitsDriver is None:
-        return 'skip'
+def test_fits_metadata():
+    driver = gdal.GetDriverByName('FITS')
 
     ds = gdal.Open('../gcore/data/byte.tif')
-    ds2 = gdaltest.fitsDriver.CreateCopy('tmp/byte.fits', ds)
+    ds2 = driver.CreateCopy('tmp/byte.fits', ds)
     md = {'TEST': 'test_value'}
     ds2.SetMetadata(md)
     ds2 = None
@@ -91,8 +68,7 @@ def fits_metadata():
     md = ds2.GetMetadata()
     ds2 = None
 
-    if md['TEST'] != 'test_value':
-        return 'fail'
+    assert md['TEST'] == 'test_value'
 
     ds2 = gdal.Open('tmp/byte.fits', gdal.GA_Update)
     md = {'TEST2': 'test_value2'}
@@ -104,30 +80,37 @@ def fits_metadata():
     md = ds2.GetMetadata()
     ds2 = None
 
-    if md['TEST2'] != 'test_value2':
-        return 'fail'
+    assert md['TEST2'] == 'test_value2'
 
-    gdaltest.fitsDriver.Delete('tmp/byte.fits')
+def test_fits_nodata():
+    driver = gdal.GetDriverByName('FITS')
 
-    return 'success'
+    ds = gdal.Open('../gcore/data/nodata_byte.tif')
+    ds2 = driver.CreateCopy('tmp/nodata_byte.fits', ds)
+    ds2 = None
+    gdal.Unlink('tmp/nodata_byte.fits.aux.xml')
 
+    ds2 = gdal.Open('tmp/nodata_byte.fits')
+    nd = ds2.GetRasterBand(1).GetNoDataValue()
+    ds2 = None
+    driver.Delete('tmp/nodata_byte.fits')
 
-###############################################################################
-#
-gdaltest_list = [fits_init]
+    assert nd == 0
 
-fits_list = ['byte', 'int16', 'int32', 'float32', 'float64']
+def test_fits_offscale():
+    driver = gdal.GetDriverByName('FITS')
 
-for item in fits_list:
-    ut = TestFITS(item)
-    gdaltest_list.append((ut.test, item))
+    ds = gdal.Open('../gdrivers/data/offscale_byte.tif')
+    ds2 = driver.CreateCopy('tmp/offscale_byte.fits', ds)
+    ds2 = None
+    gdal.Unlink('tmp/offscale_byte.fits.aux.xml')
 
-gdaltest_list.append(fits_metadata)
+    ds2 = gdal.Open('tmp/offscale_byte.fits')
+    offset = ds2.GetRasterBand(1).GetOffset()
+    scale = ds2.GetRasterBand(1).GetScale()
+    ds2 = None
+    driver.Delete('tmp/offscale_byte.fits')
 
-if __name__ == '__main__':
+    assert offset == -0.0039525691699605
+    assert scale == 1.00395256917
 
-    gdaltest.setup_run('fits')
-
-    gdaltest.run_tests(gdaltest_list)
-
-    sys.exit(gdaltest.summarize())

@@ -228,7 +228,7 @@ OGRLayer* OGRElasticDataSource::GetLayerByName(const char* pszName)
         }
         for( auto& poLayer: m_apoLayers )
         {
-            if( EQUAL( poLayer->GetName(), pszName) )
+            if( EQUAL( poLayer->GetIndexName(), pszName) )
             {
                 return poLayer.get();
             }
@@ -468,7 +468,7 @@ OGRLayer * OGRElasticDataSource::ICreateLayer(const char * pszLayerName,
             }
         }
 
-        CPLString osMappingURL(CPLSPrintf("%s/%s/%s/_mapping",
+        CPLString osMappingURL(CPLSPrintf("%s/%s/_mapping/%s",
                             GetURL(), osLaunderedName.c_str(), pszMappingName));
         if( !UploadFile(osMappingURL, osLayerMapping.c_str()) )
         {
@@ -486,7 +486,13 @@ OGRLayer * OGRElasticDataSource::ICreateLayer(const char * pszLayerName,
     {
         const char* pszGeometryName = CSLFetchNameValueDef(papszOptions, "GEOMETRY_NAME", "geometry");
         OGRGeomFieldDefn oFieldDefn(pszGeometryName, eGType);
-        oFieldDefn.SetSpatialRef(poSRS);
+        if( poSRS )
+        {
+            OGRSpatialReference* poSRSClone = poSRS->Clone();
+            poSRSClone->SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+            oFieldDefn.SetSpatialRef(poSRSClone);
+            poSRSClone->Release();
+        }
         poLayer->CreateGeomField(&oFieldDefn, FALSE);
     }
     if( pszLayerMapping )

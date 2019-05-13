@@ -1001,6 +1001,7 @@ void OGRXLSXDataSource::endElementRow(CPL_UNUSED const char *pszNameIn)
                         else if (eFieldType != OFTString && eValType != eFieldType)
                         {
                             OGRFieldDefn oNewFieldDefn(poFieldDefn);
+                            oNewFieldDefn.SetSubType(OFSTNone);
                             if ((eFieldType == OFTDate || eFieldType == OFTTime) &&
                                    eValType == OFTDateTime)
                                 oNewFieldDefn.SetType(OFTDateTime);
@@ -1675,8 +1676,8 @@ void OGRXLSXDataSource::AnalyseStyles(VSILFILE* fpStyles)
 
 OGRLayer *
 OGRXLSXDataSource::ICreateLayer( const char * pszLayerName,
-                                 CPL_UNUSED OGRSpatialReference *poSRS,
-                                 CPL_UNUSED OGRwkbGeometryType eType,
+                                 OGRSpatialReference * /*poSRS*/,
+                                 OGRwkbGeometryType /*eType*/,
                                  char ** papszOptions )
 
 {

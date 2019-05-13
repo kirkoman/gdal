@@ -75,15 +75,6 @@ uint16 GTiffGetAlphaValue(const char* pszValue, uint16 nDefault);
 /* https://www.awaresystems.be/imaging/tiff/tifftags/geo_metadata.html */
 #define TIFFTAG_GEO_METADATA   50909
 
-#if defined(TIFFLIB_VERSION) && TIFFLIB_VERSION >= 20081217 && defined(BIGTIFF_SUPPORT)
-#  define HAVE_UNSETFIELD
-#endif
-
-#if defined(TIFFLIB_VERSION) && TIFFLIB_VERSION > 20041016
-/* We need at least TIFF 3.7.0 for TIFFGetSizeProc and TIFFClientdata */
-#  define HAVE_TIFFGETSIZEPROC
-#endif
-
 #if !defined(PREDICTOR_NONE)
 #define PREDICTOR_NONE 1
 #endif
@@ -97,7 +88,7 @@ uint16 GTiffGetAlphaValue(const char* pszValue, uint16 nDefault);
 #endif
 
 #if !defined(COMPRESSION_ZSTD)
-#define     COMPRESSION_ZSTD        34926   /* ZSTD */
+#define     COMPRESSION_ZSTD        50000   /* ZSTD */
 #endif
 
 #if !defined(TIFFTAG_ZSTD_LEVEL)
@@ -106,6 +97,18 @@ uint16 GTiffGetAlphaValue(const char* pszValue, uint16 nDefault);
  
 #if !defined(COMPRESSION_LERC)
 #define     COMPRESSION_LERC        34887   /* LERC */
+#endif
+
+#if !defined(COMPRESSION_WEBP)
+#define     COMPRESSION_WEBP        50001   /* WebP */
+#endif
+
+#if !defined(TIFFTAG_WEBP_LEVEL)
+#define     TIFFTAG_WEBP_LEVEL        65568   /* WebP compression level */
+#endif
+
+#if !defined(TIFFTAG_WEBP_LOSSLESS)
+#define     TIFFTAG_WEBP_LOSSLESS     65569 /* WebP lossless/lossy */
 #endif
 
 #endif // GTIFF_H_INCLUDED

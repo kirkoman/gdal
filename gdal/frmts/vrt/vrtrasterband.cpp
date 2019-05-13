@@ -33,6 +33,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -328,7 +329,8 @@ CPLErr VRTRasterBand::SetCategoryNames( char ** papszNewNames )
 
 CPLErr VRTRasterBand::XMLInit( CPLXMLNode * psTree,
                                const char *pszVRTPath,
-                               void* pUniqueHandle )
+                               void* pUniqueHandle,
+                               std::map<CPLString, GDALDataset*>& oMapSharedSources )
 
 {
 /* -------------------------------------------------------------------- */
@@ -575,7 +577,8 @@ CPLErr VRTRasterBand::XMLInit( CPLXMLNode * psTree,
             break;
         }
 
-        if( poBand->XMLInit( psNode, pszVRTPath, pUniqueHandle ) == CE_None )
+        if( poBand->XMLInit( psNode, pszVRTPath, pUniqueHandle,
+                             oMapSharedSources ) == CE_None )
         {
             SetMaskBand(poBand);
         }
@@ -620,10 +623,26 @@ CPLXMLNode *VRTRasterBand::SerializeToXML( const char *pszVRTPath )
     if( m_bNoDataValueSet )
     {
         if (CPLIsNan(m_dfNoDataValue))
+        {
             CPLSetXMLValue( psTree, "NoDataValue", "nan");
+        }
+        else if( eDataType == GDT_Float32 &&
+                 m_dfNoDataValue == -std::numeric_limits<float>::max() )
+        {
+            // To avoid rounding out of the range of float
+            CPLSetXMLValue( psTree, "NoDataValue", "-3.4028234663852886e+38");
+        }
+        else if( eDataType == GDT_Float32 &&
+                 m_dfNoDataValue == std::numeric_limits<float>::max() )
+        {
+            // To avoid rounding out of the range of float
+            CPLSetXMLValue( psTree, "NoDataValue", "3.4028234663852886e+38");
+        }
         else
+        {
             CPLSetXMLValue( psTree, "NoDataValue",
                             CPLSPrintf( "%.16g", m_dfNoDataValue ) );
+        }
     }
 
     if( m_bHideNoDataValue )
@@ -775,6 +794,11 @@ CPLXMLNode *VRTRasterBand::SerializeToXML( const char *pszVRTPath )
 CPLErr VRTRasterBand::SetNoDataValue( double dfNewValue )
 
 {
+    if( eDataType == GDT_Float32 )
+    {
+        dfNewValue = GDALAdjustNoDataCloseToFloatMax(dfNewValue);
+    }
+
     m_bNoDataValueSet = TRUE;
     m_dfNoDataValue = dfNewValue;
 

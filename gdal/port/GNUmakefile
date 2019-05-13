@@ -33,7 +33,7 @@ OBJ =	cpl_conv.o cpl_error.o cpl_string.o cplgetsymbol.o cplstringlist.o \
 	cpl_google_oauth2.o cpl_progress.o cpl_virtualmem.o cpl_worker_thread_pool.o \
 	cpl_vsil_crypt.o cpl_sha1.o cpl_sha256.o cpl_aws.o cpl_vsi_error.o cpl_cpu_features.o \
 	cpl_google_cloud.o cpl_azure.o cpl_alibaba_oss.o cpl_json_streaming_parser.o \
-	cpl_json.o cpl_md5.o cpl_swift.o \
+	cpl_json.o cpl_md5.o cpl_swift.o cpl_vsil_plugin.o \
 	cpl_vsil_hdfs.o cpl_userfaultfd.o
 
 ifeq ($(ODBC_SETTING),yes)
@@ -77,7 +77,7 @@ endif
 
 default:	$(OBJ:.o=.$(OBJ_EXT))
 
-$(OBJ): cpl_vsi_virtual.h
+$(OBJ): cpl_vsi_virtual.h cpl_vsil_curl_class.h
 
 clean:
 	$(RM) *.o $(O_OBJ)
@@ -110,7 +110,8 @@ INST_H_FILES = \
 	cpl_vsi.h \
 	cpl_vsi_error.h \
 	cpl_vsi_virtual.h \
-	gdal_csv.h
+	gdal_csv.h \
+	cpl_auto_close.h
 
 install:
 	for f in $(INST_H_FILES) ; do $(INSTALL_DATA) $$f $(DESTDIR)$(INST_INCLUDE) ; done
